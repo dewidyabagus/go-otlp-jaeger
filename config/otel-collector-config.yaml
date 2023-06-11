@@ -1,0 +1,36 @@
+receivers:
+  otlp:
+    protocols:
+      http:
+        include_metadata: true
+        endpoint: 0.0.0.0:4318
+
+exporters:
+  jaeger:
+    endpoint: jaeger-collector:14250
+    tls:
+      insecure: true
+    
+processors:
+  batch:
+  memory_limiter:
+    check_interval: 1s
+    limit_percentage: 80
+    spike_limit_percentage: 60
+
+extensions:
+  health_check: # default port 13133
+  pprof:
+    endpoint: :1888
+  zpages:
+    endpoint: :55679
+
+service:
+  extensions: [ pprof, zpages, health_check ]
+  pipelines:
+    traces:
+      receivers: [ otlp ]
+      processors:
+        - batch
+      exporters:
+        - jaeger

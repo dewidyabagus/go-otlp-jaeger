@@ -1,0 +1,109 @@
+version: "3.8"
+
+services:
+  elasticsearch:
+    container_name: elasticsearch
+    image: elasticsearch:7.17.6
+    volumes:
+      - ./data/elasticsearch:/usr/share/elasticsearch/data
+    ports:
+      - 9200:9200
+    environment:
+      - cluster.name=es-cluster
+      - node.name=es-node1
+      - discovery.type=single-node
+      - "ES_JAVA_OPTS=-Xms256m -Xmx256m"  # Maks 512m dan Min 512m
+      - http.port=9200                    # Default 9200
+      # - xpack.security.enabled=true       # Mengaktifkan system security
+    restart: on-failure
+    deploy:
+      resources:
+        reservations:
+          cpus: "0.4"
+          memory: 256m
+        limits:
+          cpus: "0.6"
+          memory: 700m
+    healthcheck:
+      test: curl -f http://localhost:9200/_cluster/health?local=true
+      interval: 5s
+      timeout: 15s
+      retries: 5
+      start_period: 30s
+    networks:
+      - go_spm_net
+  
+  jaeger-collector:
+    container_name: jaeger-collector
+    image: jaegertracing/jaeger-collector:1.46
+    command:
+      - --collector.otlp.enabled=true
+    ports:
+      - 14269:14269 # health_check port
+    environment:
+      SPAN_STORAGE_TYPE: elasticsearch 
+      ES_SERVER_URLS: http://elasticsearch:9200
+    deploy:
+      resources:
+        reservations:
+          cpus: "0.2"
+          memory: 64m
+        limits:
+          cpus: "0.4"
+          memory: 128m
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    networks:
+      - go_spm_net
+
+  otel-collector:
+    container_name: otel-collector
+    image: otel/opentelemetry-collector-contrib:0.79.0
+    volumes:
+      - ./config/otel-collector-config.yaml:/etc/otel-collector-config.yaml
+    command:
+      - --config=/etc/otel-collector-config.yaml
+    ports:
+      - 4318:4318   # OTLP http receiver
+      - 13133:13133 # health_check extension
+    deploy:
+      resources:
+        reservations:
+          cpus: "0.2"
+          memory: 64m
+        limits:
+          cpus: "0.5"
+          memory: 128m
+    depends_on:
+      - jaeger-collector
+    networks:
+      - go_spm_net
+
+  jaeger-query:
+    container_name: jaeger-query
+    image: jaegertracing/jaeger-query:1.46
+    ports:
+      - 16686:16686
+      - 16687:16687 # health check path / and matrics path /metrics
+    environment:
+      SPAN_STORAGE_TYPE: elasticsearch
+      ES_SERVER_URLS: http://elasticsearch:9200
+    deploy:
+      resources:
+        reservations:
+          cpus: "0.2"
+          memory: 64m
+        limits:
+          cpus: "0.5"
+          memory: 128m
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    networks:
+      - go_spm_net
+
+networks:
+  go_spm_net:
+    name: go_spm_net
+    driver: bridge
