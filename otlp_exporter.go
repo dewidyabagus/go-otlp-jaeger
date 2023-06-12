@@ -22,8 +22,8 @@ func NewOTLPResources(name, version string) (*resource.Resource, error) {
 		resource.Default(),
 		resource.NewWithAttributes(
 			semconv.SchemaURL,
-			semconv.ServiceName(serviceName),
-			semconv.ServiceVersion(serviceVersion),
+			semconv.ServiceName(name),
+			semconv.ServiceVersion(version),
 			// attribute.String("environment", "development"),
 		),
 	)
