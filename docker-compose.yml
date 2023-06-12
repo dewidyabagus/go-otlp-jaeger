@@ -5,7 +5,7 @@ services:
     container_name: elasticsearch
     image: elasticsearch:7.17.6
     volumes:
-      - ./data/elasticsearch:/usr/share/elasticsearch/data
+      - es-data:/usr/share/elasticsearch/data
     ports:
       - 9200:9200
     environment:
@@ -107,3 +107,7 @@ networks:
   go_spm_net:
     name: go_spm_net
     driver: bridge
+
+volumes:
+  es-data:
+    name: "go-otlp-es-data"
