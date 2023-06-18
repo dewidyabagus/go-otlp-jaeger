@@ -24,7 +24,7 @@ func main() {
 
 	switch *service {
 	default:
-		log.Fatalln("Service tidak terdaftar")
+		log.Fatalln("Unregistered service")
 
 	case "order-service":
 		go newHttpService(context.TODO(), "order-service", "1.1.0", ":8080", "/orders", orderHandler)
@@ -108,7 +108,10 @@ func newHttpService(ctx context.Context, name, version, host, path string, funcH
 		trace.WithSchemaURL(semconv.SchemaURL),
 	)
 
-	handler := otelhttp.NewHandler(funcHandler(tracer), path)
+	spanOptions := otelhttp.WithSpanOptions(
+		trace.WithAttributes(semconv.ServiceName(name), semconv.ServiceInstanceID("svc-id-"+name)),
+	)
+	handler := otelhttp.NewHandler(funcHandler(tracer), path, spanOptions)
 	http.Handle(path, handler)
 
 	fmt.Printf("Starting HTTP service %s listen %s\n", name, host)

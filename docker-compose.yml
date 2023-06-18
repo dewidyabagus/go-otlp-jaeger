@@ -15,7 +15,6 @@ services:
       - "ES_JAVA_OPTS=-Xms256m -Xmx256m"  # Maks 512m dan Min 512m
       - http.port=9200                    # Default 9200
       # - xpack.security.enabled=true       # Mengaktifkan system security
-    restart: on-failure
     deploy:
       resources:
         reservations:
@@ -67,6 +66,7 @@ services:
     ports:
       - 4318:4318   # OTLP http receiver
       - 13133:13133 # health_check extension
+      - 8889:8889
     deploy:
       resources:
         reservations:
@@ -89,6 +89,11 @@ services:
     environment:
       SPAN_STORAGE_TYPE: elasticsearch
       ES_SERVER_URLS: http://elasticsearch:9200
+      METRICS_STORAGE_TYPE: prometheus
+      PROMETHEUS_SERVER_URL: http://prometheus:9090
+      PROMETHEUS_QUERY_SUPPORT_SPANMETRICS_CONNECTOR: true
+      PROMETHEUS_QUERY_NAMESPACE: span_metrics
+      PROMETHEUS_QUERY_DURATION_UNIT: s
     deploy:
       resources:
         reservations:
@@ -103,6 +108,44 @@ services:
     networks:
       - go_spm_net
 
+  prometheus:
+    container_name: prometheus
+    image: prom/prometheus:v2.40.3
+    volumes:
+      - ./config/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prom-data:/prometheus
+    command:
+      - --enable-feature=remote-write-receiver
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+    ports:
+      - 9090:9090
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 512m
+    networks:
+      - go_spm_net
+  
+  # Create System Architecture
+  # jaeger-dependencies:
+  #   container_name: jaeger-dependencies
+  #   image: jaegertracing/spark-dependencies
+  #   environment:
+  #     STORAGE: elasticsearch
+  #     ES_NODES: http://elasticsearch:9200
+  #   deploy:
+  #     resources:
+  #       limits:
+  #         cpus: "1"
+  #         memory: 2000m
+  #   depends_on:
+  #     elasticsearch:
+  #       condition: service_healthy
+  #   networks:
+  #     - go_spm_net
+
 networks:
   go_spm_net:
     name: go_spm_net
@@ -111,3 +154,5 @@ networks:
 volumes:
   es-data:
     name: "go-otlp-es-data"
+  prom-data:
+    name: "go-otlp-prom-data"
